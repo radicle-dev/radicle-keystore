@@ -1,0 +1,23 @@
+steps:
+  - label: "Build, test, doc"
+    commands:
+      - "ci/build-test"
+      - "ci/docs"
+    agents: &build-agent
+      production: "true"
+      platform: "linux"
+    env: &build-docker
+      DOCKER_IMAGE: "gcr.io/opensourcecoin/radicle-keystore-build"
+      DOCKER_FILE: .buildkite/docker/rust/Dockerfile
+
+  - label: "Lint and clip"
+    commands:
+      - "ci/clippy"
+    agents: *build-agent
+    env: *build-docker
+
+  - label: "Deny"
+    commands:
+      - "ci/advisory"
+    agents: *build-agent
+    env: *build-docker
