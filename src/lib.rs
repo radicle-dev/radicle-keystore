@@ -38,6 +38,7 @@ pub mod crypto;
 pub mod file;
 pub mod memory;
 pub mod pinentry;
+pub mod sign;
 
 #[cfg(test)]
 pub(crate) mod test;
