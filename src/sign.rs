@@ -21,6 +21,7 @@ pub mod ed25519 {
     use std::{
         cmp::Ordering,
         convert::Infallible,
+        fmt::{self, Debug},
         hash::{Hash, Hasher},
     };
 
@@ -85,6 +86,12 @@ pub mod ed25519 {
         #[inline]
         fn cmp(&self, other: &Signature) -> Ordering {
             Ord::cmp(self.as_ref(), other.as_ref())
+        }
+    }
+
+    impl Debug for Signature {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Signature({:?})", self.as_ref())
         }
     }
 
