@@ -25,7 +25,7 @@ pub mod ed25519 {
         hash::{Hash, Hasher},
     };
 
-    use sodiumoxide::{crypto::sign::ed25519, utils};
+    use sodiumoxide::utils;
 
     #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct PublicKey(pub [u8; 32]);
@@ -106,7 +106,12 @@ pub mod ed25519 {
         fn sign(&mut self, data: &[u8]) -> Result<Signature, Self::Error>;
     }
 
-    impl Signer for (ed25519::PublicKey, ed25519::SecretKey) {
+    impl Signer
+        for (
+            sodiumoxide::crypto::sign::ed25519::PublicKey,
+            sodiumoxide::crypto::sign::ed25519::SecretKey,
+        )
+    {
         type Error = Infallible;
 
         fn public_key(&self) -> PublicKey {
@@ -114,7 +119,9 @@ pub mod ed25519 {
         }
 
         fn sign(&mut self, data: &[u8]) -> Result<Signature, Self::Error> {
-            Ok(Signature(ed25519::sign_detached(data, &self.1).0))
+            Ok(Signature(
+                sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self.1).0,
+            ))
         }
     }
 }
