@@ -6,10 +6,6 @@ authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
 
-[features]
-default = []
-ssh = ["anyhow", "cryptovec", "futures", "thrussh-keys", "tokio"]
-
 [dependencies]
 lazy_static = "1.4"
 rpassword = "4.0"
@@ -18,13 +14,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
 sodiumoxide = "0.2"
 thiserror = "1.0"
-
-# optionals for ssh feature
-anyhow = { version = "1.0", optional = true }
-cryptovec = { version = "0.5", optional = true }
-futures = { version = "0.3", optional = true }
-thrussh-keys = { version = "0.17", optional = true }
-tokio = { version = "0.2", features = ["blocking"],  optional = true }
 
 [dev-dependencies]
 tempfile = "3.1"
