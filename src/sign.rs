@@ -142,9 +142,7 @@ pub mod ed25519 {
         /// Base compatibility test.
         ///
         /// Given two `Signer` implementations, we assert that a signature
-        /// produced by one can be verified by the other. Conversions of
-        /// `Signature` and `PublicKey` are up to the implementations --
-        /// hence, we implicitly assert compatibility between the encodings.
+        /// produced by one can be verified by the other.
         ///
         /// All combinatorial pairs of `Signer` implementations should pass
         /// this.
@@ -167,6 +165,23 @@ pub mod ed25519 {
             assert!(
                 (roundtrip2.verifier)(&sig1, &(roundtrip1.signer).public_key()),
                 "signature produced by signer2 could not be verified by signer1"
+            );
+        }
+
+        /// We also demand that the byte representations of `PublicKey` and
+        /// `Signature` be equal
+        fn same_encoding<S1, S2>(signer1: S1, signer2: S2)
+        where
+            S1: Signer,
+            S2: Signer,
+
+            S1::Error: Debug,
+            S2::Error: Debug,
+        {
+            assert_eq!(signer1.public_key(), signer2.public_key());
+            assert_eq!(
+                signer1.sign(MESSAGE).unwrap(),
+                signer2.sign(MESSAGE).unwrap()
             );
         }
 
@@ -208,6 +223,20 @@ pub mod ed25519 {
                     },
                 },
             )
+        }
+
+        #[test]
+        fn same_encoding_sodium_dalek() {
+            sodiumoxide::init().unwrap();
+
+            let sodium = sodium::gen_keypair();
+            let dalek = {
+                let secret = ed25519_dalek::SecretKey::from_bytes(&sodium.1[..32]).unwrap();
+                let public = ed25519_dalek::PublicKey::from(&secret);
+                ed25519_dalek::Keypair { secret, public }
+            };
+
+            same_encoding(sodium, dalek)
         }
     }
 }
