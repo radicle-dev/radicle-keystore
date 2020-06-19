@@ -95,6 +95,7 @@ pub mod ed25519 {
         }
     }
 
+    #[async_trait]
     pub trait Signer {
         type Error;
 
@@ -103,9 +104,10 @@ pub mod ed25519 {
 
         /// Sign the supplied data with the secret key corresponding to
         /// [`Signer::public_key`]
-        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
+        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
     }
 
+    #[async_trait]
     impl Signer
         for (
             sodiumoxide::crypto::sign::ed25519::PublicKey,
@@ -118,7 +120,7 @@ pub mod ed25519 {
             PublicKey((self.0).0)
         }
 
-        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
             Ok(Signature(
                 sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self.1).0,
             ))
@@ -146,8 +148,10 @@ pub mod ed25519 {
         ///
         /// All combinatorial pairs of `Signer` implementations should pass
         /// this.
-        fn compat<S1, S2, V1, V2>(roundtrip1: Roundtrip<S1, V1>, roundtrip2: Roundtrip<S2, V2>)
-        where
+        async fn compat<S1, S2, V1, V2>(
+            roundtrip1: Roundtrip<S1, V1>,
+            roundtrip2: Roundtrip<S2, V2>,
+        ) where
             S1: Signer,
             S2: Signer,
             V1: FnOnce(&Signature, &PublicKey) -> bool,
@@ -156,8 +160,8 @@ pub mod ed25519 {
             S1::Error: Debug,
             S2::Error: Debug,
         {
-            let sig1 = (roundtrip1.signer).sign(MESSAGE).unwrap();
-            let sig2 = (roundtrip2.signer).sign(MESSAGE).unwrap();
+            let sig1 = (roundtrip1.signer).sign(MESSAGE).await.unwrap();
+            let sig2 = (roundtrip2.signer).sign(MESSAGE).await.unwrap();
             assert!(
                 (roundtrip1.verifier)(&sig2, &(roundtrip2.signer).public_key()),
                 "signature produced by signer1 could not be verified by signer2"
@@ -170,7 +174,7 @@ pub mod ed25519 {
 
         /// We also demand that the byte representations of `PublicKey` and
         /// `Signature` be equal
-        fn same_encoding<S1, S2>(signer1: S1, signer2: S2)
+        async fn same_encoding<S1, S2>(signer1: S1, signer2: S2)
         where
             S1: Signer,
             S2: Signer,
@@ -180,11 +184,12 @@ pub mod ed25519 {
         {
             assert_eq!(signer1.public_key(), signer2.public_key());
             assert_eq!(
-                signer1.sign(MESSAGE).unwrap(),
-                signer2.sign(MESSAGE).unwrap()
+                signer1.sign(MESSAGE).await.unwrap(),
+                signer2.sign(MESSAGE).await.unwrap()
             );
         }
 
+        #[async_trait]
         impl Signer for ed25519_dalek::Keypair {
             type Error = Infallible;
 
@@ -192,14 +197,14 @@ pub mod ed25519 {
                 PublicKey(self.public.to_bytes())
             }
 
-            fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+            async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
                 let signer: &ed25519_dalek::Keypair = self;
                 Ok(Signature(signer.sign(data).to_bytes()))
             }
         }
 
-        #[test]
-        fn compat_sodium_dalek() {
+        #[async_std::test]
+        async fn compat_sodium_dalek() {
             sodiumoxide::init().unwrap();
             compat(
                 Roundtrip {
@@ -223,10 +228,11 @@ pub mod ed25519 {
                     },
                 },
             )
+            .await
         }
 
-        #[test]
-        fn same_encoding_sodium_dalek() {
+        #[async_std::test]
+        async fn same_encoding_sodium_dalek() {
             sodiumoxide::init().unwrap();
 
             let sodium = sodium::gen_keypair();
@@ -236,7 +242,7 @@ pub mod ed25519 {
                 ed25519_dalek::Keypair { secret, public }
             };
 
-            same_encoding(sodium, dalek)
+            same_encoding(sodium, dalek).await
         }
     }
 }
