@@ -103,7 +103,7 @@ pub mod ed25519 {
 
         /// Sign the supplied data with the secret key corresponding to
         /// [`Signer::public_key`]
-        fn sign(&mut self, data: &[u8]) -> Result<Signature, Self::Error>;
+        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
     }
 
     impl Signer
@@ -118,10 +118,96 @@ pub mod ed25519 {
             PublicKey((self.0).0)
         }
 
-        fn sign(&mut self, data: &[u8]) -> Result<Signature, Self::Error> {
+        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
             Ok(Signature(
                 sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self.1).0,
             ))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        use rand::rngs::OsRng;
+        use sodiumoxide::crypto::sign as sodium;
+
+        const MESSAGE: &[u8] = b"in a bottle";
+
+        struct Roundtrip<S, V> {
+            signer: S,
+            verifier: V,
+        }
+
+        /// Base compatibility test.
+        ///
+        /// Given two `Signer` implementations, we assert that a signature
+        /// produced by one can be verified by the other. Conversions of
+        /// `Signature` and `PublicKey` are up to the implementations --
+        /// hence, we implicitly assert compatibility between the encodings.
+        ///
+        /// All combinatorial pairs of `Signer` implementations should pass
+        /// this.
+        fn compat<S1, S2, V1, V2>(roundtrip1: Roundtrip<S1, V1>, roundtrip2: Roundtrip<S2, V2>)
+        where
+            S1: Signer,
+            S2: Signer,
+            V1: FnOnce(&Signature, &PublicKey) -> bool,
+            V2: FnOnce(&Signature, &PublicKey) -> bool,
+
+            S1::Error: Debug,
+            S2::Error: Debug,
+        {
+            let sig1 = (roundtrip1.signer).sign(MESSAGE).unwrap();
+            let sig2 = (roundtrip2.signer).sign(MESSAGE).unwrap();
+            assert!(
+                (roundtrip1.verifier)(&sig2, &(roundtrip2.signer).public_key()),
+                "signature produced by signer1 could not be verified by signer2"
+            );
+            assert!(
+                (roundtrip2.verifier)(&sig1, &(roundtrip1.signer).public_key()),
+                "signature produced by signer2 could not be verified by signer1"
+            );
+        }
+
+        impl Signer for ed25519_dalek::Keypair {
+            type Error = Infallible;
+
+            fn public_key(&self) -> PublicKey {
+                PublicKey(self.public.to_bytes())
+            }
+
+            fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+                let signer: &ed25519_dalek::Keypair = self;
+                Ok(Signature(signer.sign(data).to_bytes()))
+            }
+        }
+
+        #[test]
+        fn compat_sodium_dalek() {
+            sodiumoxide::init().unwrap();
+            compat(
+                Roundtrip {
+                    signer: sodium::gen_keypair(),
+                    verifier: |sig: &Signature, pk: &PublicKey| {
+                        let sig = sodium::Signature::from_slice(sig.as_ref())
+                            .expect("does not look like a sodium ed25519 signature");
+                        let pk = sodium::PublicKey::from_slice(pk.as_ref())
+                            .expect("does not look like a sodium ed25519 public key");
+
+                        sodium::verify_detached(&sig, MESSAGE, &pk)
+                    },
+                },
+                Roundtrip {
+                    signer: ed25519_dalek::Keypair::generate(&mut OsRng {}),
+                    verifier: |sig: &Signature, pk: &PublicKey| {
+                        let sig = ed25519_dalek::Signature::from_bytes(sig.as_ref()).unwrap();
+                        let pk = ed25519_dalek::PublicKey::from_bytes(pk.as_ref()).unwrap();
+
+                        pk.verify(MESSAGE, &sig).and(Ok(true)).unwrap()
+                    },
+                },
+            )
         }
     }
 }
