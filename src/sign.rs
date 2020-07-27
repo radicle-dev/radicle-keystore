@@ -114,6 +114,21 @@ pub mod ed25519 {
     }
 
     #[async_trait]
+    impl Signer for sodiumoxide::crypto::sign::ed25519::SecretKey {
+        type Error = Infallible;
+
+        fn public_key(&self) -> PublicKey {
+            PublicKey(self.public_key().0)
+        }
+
+        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+            Ok(Signature(
+                sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self).0,
+            ))
+        }
+    }
+
+    #[async_trait]
     impl Signer
         for (
             sodiumoxide::crypto::sign::ed25519::PublicKey,
@@ -127,9 +142,7 @@ pub mod ed25519 {
         }
 
         async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-            Ok(Signature(
-                sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self.1).0,
-            ))
+            self.1.sign(data).await
         }
     }
 
