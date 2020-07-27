@@ -19,6 +19,6 @@ thiserror = "1.0"
 
 [dev-dependencies]
 async-std = { version = "1", features = ["attributes"] }
-ed25519-dalek = "1.0.0-pre.3" # lolwut?
+ed25519-dalek = "=1.0.0-pre.4" # lolwut?
 tempfile = "3"
 

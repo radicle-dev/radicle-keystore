@@ -150,6 +150,7 @@ pub mod ed25519 {
     mod tests {
         use super::*;
 
+        use ed25519_dalek::Signer as DalekSigner;
         use sodiumoxide::crypto::sign as sodium;
 
         const MESSAGE: &[u8] = b"in a bottle";
@@ -184,8 +185,7 @@ pub mod ed25519 {
             }
 
             async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-                let signer: &ed25519_dalek::Keypair = self;
-                Ok(Signature(signer.sign(data).to_bytes()))
+                Ok(Signature(DalekSigner::sign(self, data).to_bytes()))
             }
         }
 
