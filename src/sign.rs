@@ -128,24 +128,6 @@ pub mod ed25519 {
         }
     }
 
-    #[async_trait]
-    impl Signer
-        for (
-            sodiumoxide::crypto::sign::ed25519::PublicKey,
-            sodiumoxide::crypto::sign::ed25519::SecretKey,
-        )
-    {
-        type Error = Infallible;
-
-        fn public_key(&self) -> PublicKey {
-            PublicKey((self.0).0)
-        }
-
-        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-            self.1.sign(data).await
-        }
-    }
-
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -193,9 +175,9 @@ pub mod ed25519 {
         async fn compat_sodium_dalek() {
             sodiumoxide::init().unwrap();
 
-            let sodium = sodium::gen_keypair();
+            let (_, sodium) = sodium::gen_keypair();
             let dalek = {
-                let secret = ed25519_dalek::SecretKey::from_bytes(&sodium.1[..32]).unwrap();
+                let secret = ed25519_dalek::SecretKey::from_bytes(&sodium[..32]).unwrap();
                 let public = ed25519_dalek::PublicKey::from(&secret);
                 ed25519_dalek::Keypair { secret, public }
             };
