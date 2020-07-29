@@ -8,6 +8,7 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 async-trait = "0.1"
+dyn-clone = "1.0"
 futures = "0.3"
 lazy_static = "1.4"
 rpassword = "4.0"

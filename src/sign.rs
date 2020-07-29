@@ -25,6 +25,7 @@ pub mod ed25519 {
         hash::{Hash, Hasher},
     };
 
+    use dyn_clone::DynClone;
     use sodiumoxide::utils;
 
     /// Ed25519 public key, encoded as per [RFC 8032]
@@ -102,7 +103,7 @@ pub mod ed25519 {
     }
 
     #[async_trait]
-    pub trait Signer {
+    pub trait Signer: DynClone {
         type Error;
 
         /// Obtain the [`PublicKey`] used for signing
