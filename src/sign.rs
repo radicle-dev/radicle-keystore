@@ -138,6 +138,7 @@ pub mod ed25519 {
     mod tests {
         use super::*;
 
+        use ed25519_dalek::Signer as _;
         use sodiumoxide::crypto::sign as sodium;
 
         const MESSAGE: &[u8] = b"in a bottle";
@@ -163,16 +164,30 @@ pub mod ed25519 {
             );
         }
 
+        // I'm sorry... `ed25519_dalek::Keypair` does not have `Clone` and `DynClone`
+        // would like `Clone`.
+        struct Keypair(ed25519_dalek::Keypair);
+
+        impl Clone for Keypair {
+            fn clone(&self) -> Self {
+                let pair = &self.0;
+                Keypair(ed25519_dalek::Keypair {
+                    public: pair.public,
+                    secret: ed25519_dalek::SecretKey::from_bytes(&pair.secret.to_bytes()).unwrap(),
+                })
+            }
+        }
+
         #[async_trait]
-        impl Signer for ed25519_dalek::Keypair {
+        impl Signer for Keypair {
             type Error = Infallible;
 
             fn public_key(&self) -> PublicKey {
-                PublicKey(self.public.to_bytes())
+                PublicKey(self.0.public.to_bytes())
             }
 
             async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-                let signer: &ed25519_dalek::Keypair = self;
+                let signer: &ed25519_dalek::Keypair = &self.0;
                 Ok(Signature(signer.sign(data).to_bytes()))
             }
         }
@@ -185,7 +200,7 @@ pub mod ed25519 {
             let dalek = {
                 let secret = ed25519_dalek::SecretKey::from_bytes(&sodium.1[..32]).unwrap();
                 let public = ed25519_dalek::PublicKey::from(&secret);
-                ed25519_dalek::Keypair { secret, public }
+                Keypair(ed25519_dalek::Keypair { secret, public })
             };
 
             compat(sodium, dalek).await
