@@ -29,6 +29,7 @@ use crate::{crypto::Crypto, Keypair, Keystore, SecretKeyExt};
 
 /// [`Keystore`] implementation which stores the encrypted key in a file on the
 /// local filesystem.
+#[derive(Clone)]
 pub struct FileStorage<C, PK, SK, M> {
     key_file_path: PathBuf,
     crypto: C,
