@@ -75,6 +75,7 @@ pub enum SecretBoxError<PinentryError: std::error::Error + 'static> {
 ///
 /// The resulting [`SecretBox`] stores the ciphertext alongside cleartext salt
 /// and nonce values.
+#[derive(Clone)]
 pub struct Pwhash<P> {
     pinentry: P,
 }
