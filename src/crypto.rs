@@ -149,8 +149,11 @@ where
 
 fn derive_key(salt: &Salt, passphrase: &SecUtf8) -> [u8; 32] {
     let mut key = [0u8; 32];
-    let params = crypto::scrypt::ScryptParams::new(SCRYPT_WORK_FACTOR, 8, 1);
-    crypto::scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key);
+    let params =
+        scrypt::ScryptParams::new(SCRYPT_WORK_FACTOR, 8, 1).expect("Scrypt params must be valid");
+
+    scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key)
+        .expect("Output length must not be zero");
 
     key
 }
