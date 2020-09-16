@@ -26,15 +26,6 @@ use thiserror::Error;
 
 use crate::pinentry::Pinentry;
 
-/// Work factor for scrypt.
-///
-/// The current value of `16` is secure for production uses but too slow for
-/// tests. Therefore, we use a lower value for testing.
-#[cfg(not(test))]
-const SCRYPT_WORK_FACTOR: u8 = 16;
-#[cfg(test)]
-const SCRYPT_WORK_FACTOR: u8 = 4;
-
 /// Nonce used for secret box.
 type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
 
@@ -149,8 +140,14 @@ where
 
 fn derive_key(salt: &Salt, passphrase: &SecUtf8) -> [u8; 32] {
     let mut key = [0u8; 32];
-    let params =
-        scrypt::ScryptParams::new(SCRYPT_WORK_FACTOR, 8, 1).expect("Scrypt params must be valid");
+
+    let params = if cfg!(test) {
+        // For testing, the recommended parameters are too slow, so we use a lower
+        // amount for the work factor.
+        scrypt::ScryptParams::new(4, 8, 1).expect("Scrypt params must be valid")
+    } else {
+        scrypt::ScryptParams::recommended()
+    };
 
     scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key)
         .expect("Output length must not be zero");
