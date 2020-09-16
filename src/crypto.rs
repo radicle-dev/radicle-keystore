@@ -36,7 +36,7 @@ const SCRYPT_WORK_FACTOR: u8 = 16;
 const SCRYPT_WORK_FACTOR: u8 = 4;
 
 /// Nonce used for secret box.
-type Nonce<NonceSize> = GenericArray<u8, NonceSize>;
+type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
 
 /// 192-bit salt.
 type Salt = [u8; 24];
@@ -54,11 +54,8 @@ pub trait Crypto: Sized {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct SecretBox<C>
-where
-    C: aead::Aead,
-{
-    nonce: Nonce<C::NonceSize>,
+pub struct SecretBox {
+    nonce: Nonce,
     salt: Salt,
     sealed: Vec<u8>,
 }
@@ -97,7 +94,7 @@ where
     P: Pinentry,
     P::Error: std::error::Error + 'static,
 {
-    type SecretBox = SecretBox<chacha20poly1305::ChaCha20Poly1305>;
+    type SecretBox = SecretBox;
     type Error = SecretBoxError<P::Error>;
 
     fn seal<K: AsRef<[u8]>>(&self, secret: K) -> Result<Self::SecretBox, Self::Error> {
