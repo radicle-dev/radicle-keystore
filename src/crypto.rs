@@ -56,6 +56,9 @@ pub enum SecretBoxError<PinentryError: std::error::Error + 'static> {
     #[error("Unable to decrypt secret box using the derived key")]
     InvalidKey,
 
+    #[error("Error returned from underlying crypto")]
+    CryptoError,
+
     #[error("Error getting passphrase")]
     Pinentry(#[from] PinentryError),
 }
@@ -112,7 +115,9 @@ where
         let key = chacha20poly1305::Key::from_slice(&derived[..]);
         let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
 
-        let sealed = cipher.encrypt(&nonce, secret.as_ref()).unwrap();
+        let sealed = cipher
+            .encrypt(&nonce, secret.as_ref())
+            .map_err(|_| Self::Error::CryptoError)?;
 
         Ok(SecretBox {
             nonce,
