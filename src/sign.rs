@@ -171,6 +171,21 @@ pub mod ed25519 {
             }
         }
 
+        #[async_trait]
+        impl Signer for ed25519_zebra::SigningKey {
+            type Error = Infallible;
+
+            fn public_key(&self) -> PublicKey {
+                let vk: ed25519_zebra::VerificationKey = self.into();
+                PublicKey(vk.into())
+            }
+
+            async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+                let signature = self.sign(data);
+                Ok(Signature(signature.into()))
+            }
+        }
+
         #[async_std::test]
         async fn compat_sodium_dalek() {
             sodiumoxide::init().unwrap();
@@ -183,6 +198,22 @@ pub mod ed25519 {
             };
 
             compat(sodium, dalek).await
+        }
+
+        #[async_std::test]
+        async fn compat_zebra_dalek() {
+            use rand::rngs::OsRng;
+
+            let csprng = OsRng {};
+            let zebra = ed25519_zebra::SigningKey::new(csprng);
+
+            let dalek = {
+                let secret = ed25519_dalek::SecretKey::from_bytes(zebra.as_ref()).unwrap();
+                let public = ed25519_dalek::PublicKey::from(&secret);
+                ed25519_dalek::Keypair { secret, public }
+            };
+
+            compat(zebra, dalek).await
         }
     }
 }
