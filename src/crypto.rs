@@ -29,8 +29,11 @@ use crate::pinentry::Pinentry;
 /// Nonce used for secret box.
 type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
 
+/// Size of the salt, in bytes.
+const SALT_SIZE: usize = 24;
+
 /// 192-bit salt.
-type Salt = [u8; 24];
+type Salt = [u8; SALT_SIZE];
 
 /// Class of types which can seal (encrypt) a secret, and unseal (decrypt) it
 /// from it's sealed form.
@@ -106,7 +109,7 @@ where
         rng.fill_bytes(&mut nonce);
 
         // Generate salt.
-        let mut salt: Salt = [0; 24];
+        let mut salt: Salt = [0; SALT_SIZE];
         rng.fill_bytes(&mut salt);
 
         // Derive key from passphrase.
