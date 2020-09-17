@@ -15,31 +15,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::ops::Deref;
-
-use lazy_static::lazy_static;
+use chacha20poly1305::{
+    aead,
+    aead::{Aead, NewAead},
+};
+use generic_array::GenericArray;
 use secstr::{SecStr, SecUtf8};
 use serde::{Deserialize, Serialize};
-use sodiumoxide::crypto::{pwhash, secretbox};
 use thiserror::Error;
 
 use crate::pinentry::Pinentry;
 
-lazy_static! {
-    static ref SODIUMOXIDE_INITIALISED: bool = sodiumoxide::init().map(|()| true).unwrap_or(false);
-}
+/// Nonce used for secret box.
+type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
 
-/// Lazily trigger sodiumoxide initialisation.
-///
-/// Panics if `sodiumoxide::init()` fails.
-///
-/// **This function must be called from all places within this module which
-/// could be called with an unitialized `sodiumoxide`.**
-fn ensure_initialised() {
-    if !SODIUMOXIDE_INITIALISED.deref() {
-        panic!("Failed to initialise sodiumoxide")
-    }
-}
+/// Size of the salt, in bytes.
+const SALT_SIZE: usize = 24;
+
+/// 192-bit salt.
+type Salt = [u8; SALT_SIZE];
 
 /// Class of types which can seal (encrypt) a secret, and unseal (decrypt) it
 /// from it's sealed form.
@@ -55,8 +49,8 @@ pub trait Crypto: Sized {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SecretBox {
-    nonce: secretbox::Nonce,
-    salt: pwhash::Salt,
+    nonce: Nonce,
+    salt: Salt,
     sealed: Vec<u8>,
 }
 
@@ -64,6 +58,9 @@ pub struct SecretBox {
 pub enum SecretBoxError<PinentryError: std::error::Error + 'static> {
     #[error("Unable to decrypt secret box using the derived key")]
     InvalidKey,
+
+    #[error("Error returned from underlying crypto")]
+    CryptoError,
 
     #[error("Error getting passphrase")]
     Pinentry(#[from] PinentryError),
@@ -85,7 +82,6 @@ impl<P> Pwhash<P> {
     ///
     /// Panics if the `sodiumoxide` crate could not be initialised.
     pub fn new(pinentry: P) -> Self {
-        ensure_initialised();
         Self { pinentry }
     }
 }
@@ -99,17 +95,32 @@ where
     type Error = SecretBoxError<P::Error>;
 
     fn seal<K: AsRef<[u8]>>(&self, secret: K) -> Result<Self::SecretBox, Self::Error> {
-        ensure_initialised();
+        use rand::RngCore;
 
         let passphrase = self
             .pinentry
             .get_passphrase()
             .map_err(SecretBoxError::Pinentry)?;
 
-        let nonce = secretbox::gen_nonce();
-        let salt = pwhash::gen_salt();
+        let mut rng = rand::thread_rng();
 
-        let sealed = secretbox::seal(secret.as_ref(), &nonce, &derive_key(&salt, &passphrase));
+        // Generate nonce.
+        let mut nonce = [0; 12];
+        rng.fill_bytes(&mut nonce);
+
+        // Generate salt.
+        let mut salt: Salt = [0; SALT_SIZE];
+        rng.fill_bytes(&mut salt);
+
+        // Derive key from passphrase.
+        let nonce = *Nonce::from_slice(&nonce[..]);
+        let derived = derive_key(&salt, &passphrase);
+        let key = chacha20poly1305::Key::from_slice(&derived[..]);
+        let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
+
+        let sealed = cipher
+            .encrypt(&nonce, secret.as_ref())
+            .map_err(|_| Self::Error::CryptoError)?;
 
         Ok(SecretBox {
             nonce,
@@ -119,27 +130,35 @@ where
     }
 
     fn unseal(&self, secret_box: Self::SecretBox) -> Result<SecStr, Self::Error> {
-        ensure_initialised();
-
         let passphrase = self
             .pinentry
             .get_passphrase()
             .map_err(SecretBoxError::Pinentry)?;
 
-        secretbox::open(
-            &secret_box.sealed,
-            &secret_box.nonce,
-            &derive_key(&secret_box.salt, &passphrase),
-        )
-        .map_err(|()| SecretBoxError::InvalidKey)
-        .map(SecStr::new)
+        let derived = derive_key(&secret_box.salt, &passphrase);
+        let key = chacha20poly1305::Key::from_slice(&derived[..]);
+        let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
+
+        cipher
+            .decrypt(&secret_box.nonce, secret_box.sealed.as_slice())
+            .map_err(|_| SecretBoxError::InvalidKey)
+            .map(SecStr::new)
     }
 }
 
-fn derive_key(salt: &pwhash::Salt, passphrase: &SecUtf8) -> secretbox::Key {
-    let mut k = secretbox::Key([0; secretbox::KEYBYTES]);
-    let secretbox::Key(ref mut kb) = k;
-    pwhash::derive_key_interactive(kb, passphrase.unsecure().as_bytes(), salt)
-        .expect("Key derivation failed"); // OOM
-    k
+fn derive_key(salt: &Salt, passphrase: &SecUtf8) -> [u8; 32] {
+    let mut key = [0u8; 32];
+
+    let params = if cfg!(test) {
+        // For testing, the recommended parameters are too slow, so we use a lower
+        // amount for the work factor.
+        scrypt::ScryptParams::new(4, 8, 1).expect("Scrypt params must be valid")
+    } else {
+        scrypt::ScryptParams::recommended()
+    };
+
+    scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key)
+        .expect("Output length must not be zero");
+
+    key
 }

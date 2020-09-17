@@ -25,8 +25,6 @@ pub mod ed25519 {
         hash::{Hash, Hasher},
     };
 
-    use sodiumoxide::utils;
-
     /// Ed25519 public key, encoded as per [RFC 8032]
     ///
     /// [RFC 8032]: https://tools.ietf.org/html/rfc8032
@@ -47,7 +45,7 @@ pub mod ed25519 {
 
     impl PartialEq for Signature {
         fn eq(&self, other: &Self) -> bool {
-            utils::memcmp(&self.0, &other.0)
+            self.0.as_ref() == other.0.as_ref()
         }
     }
 
@@ -114,17 +112,17 @@ pub mod ed25519 {
     }
 
     #[async_trait]
-    impl Signer for sodiumoxide::crypto::sign::ed25519::SecretKey {
+    impl Signer for ed25519_zebra::SigningKey {
         type Error = Infallible;
 
         fn public_key(&self) -> PublicKey {
-            PublicKey(self.public_key().0)
+            let vk: ed25519_zebra::VerificationKey = self.into();
+            PublicKey(vk.into())
         }
 
         async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-            Ok(Signature(
-                sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self).0,
-            ))
+            let signature = self.sign(data);
+            Ok(Signature(signature.into()))
         }
     }
 
@@ -159,6 +157,21 @@ pub mod ed25519 {
         }
 
         #[async_trait]
+        impl Signer for sodiumoxide::crypto::sign::ed25519::SecretKey {
+            type Error = Infallible;
+
+            fn public_key(&self) -> PublicKey {
+                PublicKey(self.public_key().0)
+            }
+
+            async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+                Ok(Signature(
+                    sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self).0,
+                ))
+            }
+        }
+
+        #[async_trait]
         impl Signer for ed25519_dalek::Keypair {
             type Error = Infallible;
 
@@ -168,21 +181,6 @@ pub mod ed25519 {
 
             async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
                 Ok(Signature(DalekSigner::sign(self, data).to_bytes()))
-            }
-        }
-
-        #[async_trait]
-        impl Signer for ed25519_zebra::SigningKey {
-            type Error = Infallible;
-
-            fn public_key(&self) -> PublicKey {
-                let vk: ed25519_zebra::VerificationKey = self.into();
-                PublicKey(vk.into())
-            }
-
-            async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-                let signature = self.sign(data);
-                Ok(Signature(signature.into()))
             }
         }
 
