@@ -26,6 +26,24 @@ use thiserror::Error;
 
 use crate::pinentry::Pinentry;
 
+/// Parameters for the key derivation function.
+pub type KdfParams = scrypt::ScryptParams;
+
+lazy_static! {
+    /// [`KdfParams`] suitable for production use.
+    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::recommended();
+
+    /// [`KdfParams`] suitable for use in tests.
+    ///
+    /// # Warning
+    ///
+    /// These parameters allows a brute-force attack against an encrypted
+    /// [`SecretBox`] to be carried out at significantly lower cost. Care must
+    /// be taken by users of this library to prevent accidental use of test
+    /// parameters in a production setting.
+    pub static ref KDF_PARAMS_TEST: KdfParams = scrypt::ScryptParams::new(4, 8, 1).unwrap();
+}
+
 /// Nonce used for secret box.
 type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
 
@@ -66,23 +84,24 @@ pub enum SecretBoxError<PinentryError: std::error::Error + 'static> {
     Pinentry(#[from] PinentryError),
 }
 
-/// A [`Crypto`] implementation using `libsodium`'s "secretbox". The encryption
-/// key is derived from a passphrase using the primitives provided by
-/// `libsodium`'s `pwhash` (hence the name).
+/// A [`Crypto`] implementation based on `libsodium`'s "secretbox".
+///
+/// While historically based on `libsodium`, the underlying implementation is
+/// now based on the [`chacha20poly1305`] crate. The encryption key is derived
+/// from a passphrase using [`scrypt`].
 ///
 /// The resulting [`SecretBox`] stores the ciphertext alongside cleartext salt
 /// and nonce values.
 #[derive(Clone)]
 pub struct Pwhash<P> {
     pinentry: P,
+    params: KdfParams,
 }
 
 impl<P> Pwhash<P> {
     /// Create a new [`Pwhash`] value
-    ///
-    /// Panics if the `sodiumoxide` crate could not be initialised.
-    pub fn new(pinentry: P) -> Self {
-        Self { pinentry }
+    pub fn new(pinentry: P, params: KdfParams) -> Self {
+        Self { pinentry, params }
     }
 }
 
@@ -114,7 +133,7 @@ where
 
         // Derive key from passphrase.
         let nonce = *Nonce::from_slice(&nonce[..]);
-        let derived = derive_key(&salt, &passphrase);
+        let derived = derive_key(&salt, &passphrase, &self.params);
         let key = chacha20poly1305::Key::from_slice(&derived[..]);
         let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
 
@@ -135,7 +154,7 @@ where
             .get_passphrase()
             .map_err(SecretBoxError::Pinentry)?;
 
-        let derived = derive_key(&secret_box.salt, &passphrase);
+        let derived = derive_key(&secret_box.salt, &passphrase, &self.params);
         let key = chacha20poly1305::Key::from_slice(&derived[..]);
         let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
 
@@ -146,17 +165,8 @@ where
     }
 }
 
-fn derive_key(salt: &Salt, passphrase: &SecUtf8) -> [u8; 32] {
+fn derive_key(salt: &Salt, passphrase: &SecUtf8, params: &scrypt::ScryptParams) -> [u8; 32] {
     let mut key = [0u8; 32];
-
-    let params = if cfg!(test) {
-        // For testing, the recommended parameters are too slow, so we use a lower
-        // amount for the work factor.
-        scrypt::ScryptParams::new(4, 8, 1).expect("Scrypt params must be valid")
-    } else {
-        scrypt::ScryptParams::recommended()
-    };
-
     scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key)
         .expect("Output length must not be zero");
 
