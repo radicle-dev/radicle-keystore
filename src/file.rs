@@ -192,7 +192,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        crypto::{self, Pwhash, SecretBoxError},
+        crypto::{Pwhash, SecretBoxError},
         pinentry::Pinentry,
         test::*,
     };
@@ -206,7 +206,7 @@ mod tests {
         let tmp = tempdir().expect("Can't get tempdir");
         f(FileStorage::new(
             &tmp.path().join("test.key"),
-            Pwhash::new(pin, *crypto::KDF_PARAMS_TEST),
+            Pwhash::new(pin),
         ))
     }
 

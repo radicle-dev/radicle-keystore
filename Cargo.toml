@@ -6,6 +6,20 @@ authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
 
+[features]
+default = []
+# The test feature exists to allow this crate to be configured equivalently to
+# `#[cfg(test)]`, as `#[cfg(test)]` doesn't propagate to dependencies. We use
+# this to employ weaker scrypt params for testing purposes.
+#
+# Using this exploits that cargo will shadow a dependency appearing in
+# `[dependencies]` with the one of the same name appearing in
+# `[dev-dependencies`]. So, to make the tests in `mycrate` (which uses
+# `radicle-keystore`) go faster, add `radicle-keystore` in **both**
+# [`dependencies`] and [`dev-dependencies`], where the latter one is configured
+# with `features = ["test"]`.
+test = []
+
 [dependencies]
 async-trait = "0.1"
 chacha20poly1305 = { version = "0.5.1", default-features = false, features = ["alloc", "chacha20"] }

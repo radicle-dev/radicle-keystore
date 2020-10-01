@@ -152,7 +152,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        crypto::{self, Pwhash, SecretBoxError},
+        crypto::{Pwhash, SecretBoxError},
         pinentry::Pinentry,
         test::*,
     };
@@ -163,10 +163,7 @@ mod tests {
         P: Pinentry,
         P::Error: std::error::Error + 'static,
     {
-        f(MemoryStorage::new(Pwhash::new(
-            pin,
-            *crypto::KDF_PARAMS_TEST,
-        )))
+        f(MemoryStorage::new(Pwhash::new(pin)))
     }
 
     #[test]

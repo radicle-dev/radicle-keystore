@@ -31,17 +31,10 @@ pub type KdfParams = scrypt::ScryptParams;
 
 lazy_static! {
     /// [`KdfParams`] suitable for production use.
-    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::recommended();
+    static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::new(15, 8, 1).unwrap();
 
     /// [`KdfParams`] suitable for use in tests.
-    ///
-    /// # Warning
-    ///
-    /// These parameters allows a brute-force attack against an encrypted
-    /// [`SecretBox`] to be carried out at significantly lower cost. Care must
-    /// be taken by users of this library to prevent accidental use of test
-    /// parameters in a production setting.
-    pub static ref KDF_PARAMS_TEST: KdfParams = scrypt::ScryptParams::new(4, 8, 1).unwrap();
+    static ref KDF_PARAMS_TEST: KdfParams = scrypt::ScryptParams::new(4, 8, 1).unwrap();
 }
 
 /// Nonce used for secret box.
@@ -95,13 +88,12 @@ pub enum SecretBoxError<PinentryError: std::error::Error + 'static> {
 #[derive(Clone)]
 pub struct Pwhash<P> {
     pinentry: P,
-    params: KdfParams,
 }
 
 impl<P> Pwhash<P> {
     /// Create a new [`Pwhash`] value
-    pub fn new(pinentry: P, params: KdfParams) -> Self {
-        Self { pinentry, params }
+    pub fn new(pinentry: P) -> Self {
+        Self { pinentry }
     }
 }
 
@@ -133,7 +125,7 @@ where
 
         // Derive key from passphrase.
         let nonce = *Nonce::from_slice(&nonce[..]);
-        let derived = derive_key(&salt, &passphrase, &self.params);
+        let derived = derive_key(&salt, &passphrase);
         let key = chacha20poly1305::Key::from_slice(&derived[..]);
         let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
 
@@ -154,7 +146,7 @@ where
             .get_passphrase()
             .map_err(SecretBoxError::Pinentry)?;
 
-        let derived = derive_key(&secret_box.salt, &passphrase, &self.params);
+        let derived = derive_key(&secret_box.salt, &passphrase);
         let key = chacha20poly1305::Key::from_slice(&derived[..]);
         let cipher = chacha20poly1305::ChaCha20Poly1305::new(key);
 
@@ -165,8 +157,14 @@ where
     }
 }
 
-fn derive_key(salt: &Salt, passphrase: &SecUtf8, params: &scrypt::ScryptParams) -> [u8; 32] {
+fn derive_key(salt: &Salt, passphrase: &SecUtf8) -> [u8; 32] {
     let mut key = [0u8; 32];
+
+    #[cfg(any(test, feature = "test"))]
+    let params = *KDF_PARAMS_TEST;
+    #[cfg(not(any(test, feature = "test")))]
+    let params = *KDF_PARAMS_PROD;
+
     scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, &params, &mut key)
         .expect("Output length must not be zero");
 
