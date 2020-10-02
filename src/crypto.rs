@@ -31,7 +31,7 @@ pub type KdfParams = scrypt::ScryptParams;
 
 lazy_static! {
     /// [`KdfParams`] suitable for production use.
-    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::recommended();
+    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::new(15, 8, 1).unwrap();
 
     /// [`KdfParams`] suitable for use in tests.
     ///
