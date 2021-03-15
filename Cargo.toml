@@ -6,6 +6,9 @@ authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
 
+[features]
+ssh-agent = ["thrussh-keys", "tokio"]
+
 [dependencies]
 async-trait = "0.1"
 chacha20poly1305 = { version = "0.5.1", default-features = false, features = ["alloc", "chacha20"] }
@@ -17,14 +20,15 @@ rpassword = "4.0"
 secstr = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
+thrussh-keys = { version = "0.20", optional = true }
+tokio = { version = "1.0", features = ["net"], optional = true }
 rand = "0.7"
 scrypt = { version = "0.4", default-features = false }
 thiserror = "1.0"
 
 [dev-dependencies]
-async-std = { version = "1", features = ["attributes"] }
+tokio = { version = "1.0", features = ["macros", "rt"] }
 ed25519-dalek = "=1.0.0-pre.4" # lolwut?
 rand = { version = "0.7", default-features = false }
 sodiumoxide = "0.2"
 tempfile = "3"
-
