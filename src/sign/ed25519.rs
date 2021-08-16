@@ -22,6 +22,14 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+pub struct SigningKey(ed25519_zebra::SigningKey);
+
+impl From<ed25519_zebra::SigningKey> for SigningKey {
+    fn from(key: ed25519_zebra::SigningKey) -> Self {
+        Self(key)
+    }
+}
+
 /// Ed25519 public key, encoded as per [RFC 8032]
 ///
 /// [RFC 8032]: https://tools.ietf.org/html/rfc8032
@@ -120,6 +128,140 @@ impl Signer for ed25519_zebra::SigningKey {
     async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
         let signature = self.sign(data);
         Ok(Signature(signature.into()))
+    }
+}
+
+#[cfg(feature = "ssh-agent")]
+pub mod thrussh {
+    use std::convert::{TryFrom as _, TryInto as _};
+
+    use byteorder::{BigEndian, ByteOrder as _};
+    use cryptovec::CryptoVec;
+    use thiserror::Error;
+    use thrussh_agent as agent;
+    use thrussh_encoding::{Encoding as _, Position, Reader as _};
+
+    use super::*;
+
+    #[derive(Debug, Error)]
+    pub enum SignatureError {
+        #[error("invalid signature was computed")]
+        Invalid,
+        #[error(transparent)]
+        Encoding(#[from] thrussh_encoding::Error),
+    }
+
+    impl agent::key::Signature for Signature {
+        type Error = SignatureError;
+
+        fn read(buf: &CryptoVec) -> Result<Self, Self::Error> {
+            let mut r = buf.reader(1);
+            let mut resp = r.read_string()?.reader(0);
+            let typ = resp.read_string()?;
+            let sig = resp.read_string()?;
+            match typ {
+                b"ssh-ed25519" => Ok(Signature(
+                    sig.try_into().map_err(|_| SignatureError::Invalid)?,
+                )),
+                _ => Err(SignatureError::Invalid),
+            }
+        }
+    }
+
+    #[derive(Debug, Error)]
+    pub enum PublicKeyError {
+        #[error("the public key parsed was not 32 bits in length")]
+        Invalid,
+        #[error(transparent)]
+        Encoding(#[from] thrussh_encoding::Error),
+    }
+
+    impl agent::key::Public for PublicKey {
+        type Error = PublicKeyError;
+
+        fn write_blob(&self, buf: &mut CryptoVec) {
+            buf.extend(&[0, 0, 0, 0]);
+            let len0 = buf.len();
+            buf.extend_ssh_string(b"ssh-ed25519");
+            buf.extend_ssh_string(&self.0[0..]);
+            let len1 = buf.len();
+            BigEndian::write_u32(&mut buf[5..], (len1 - len0) as u32);
+        }
+
+        fn read(r: &mut Position) -> Result<Option<Self>, Self::Error> {
+            let t = r.read_string()?;
+            match t {
+                b"ssh-ed25519" => {
+                    let p = r
+                        .read_string()?
+                        .try_into()
+                        .map_err(|_| PublicKeyError::Invalid)?;
+                    Ok(Some(Self(p)))
+                },
+                _ => Ok(None),
+            }
+        }
+
+        fn hash(&self) -> u32 {
+            0
+        }
+    }
+
+    #[derive(Debug, Error)]
+    pub enum SigningKeyError {
+        #[error(transparent)]
+        Encoding(#[from] thrussh_encoding::Error),
+        #[error(transparent)]
+        Ed25519(#[from] ed25519_zebra::Error),
+    }
+
+    impl agent::key::Private for SigningKey {
+        type Error = SigningKeyError;
+
+        fn read(r: &mut Position) -> Result<Option<(Vec<u8>, Self)>, Self::Error> {
+            let t = r.read_string()?;
+            match t {
+                b"ssh-ed25519" => {
+                    let public_ = r.read_string()?;
+                    let concat = r.read_string()?;
+                    let _comment = r.read_string()?;
+                    if &concat[32..64] != public_ {
+                        return Ok(None);
+                    }
+                    let seed = &concat[0..32];
+                    let key = SigningKey(ed25519_zebra::SigningKey::try_from(seed)?);
+                    Ok(Some((public_.to_vec(), key)))
+                },
+                _ => Ok(None),
+            }
+        }
+
+        fn write(&self, buf: &mut CryptoVec) -> Result<(), Self::Error> {
+            let pk = ed25519_zebra::VerificationKey::from(&self.0);
+            let seed = self.0.as_ref();
+            let mut pair = [0u8; 64];
+            pair[..32].copy_from_slice(seed);
+            pair[32..].copy_from_slice(pk.as_ref());
+            buf.extend_ssh_string(b"ssh-ed25519");
+            buf.extend_ssh_string(pk.as_ref());
+            buf.push_u32_be(64);
+            buf.extend(&pair);
+            buf.extend_ssh_string(b"");
+            Ok(())
+        }
+
+        fn write_signature<Bytes: AsRef<[u8]>>(
+            &self,
+            buf: &mut CryptoVec,
+            to_sign: Bytes,
+        ) -> Result<(), Self::Error> {
+            let name = "ssh-ed25519";
+            let signature: [u8; 64] = self.0.sign(to_sign.as_ref()).into();
+            buf.push_u32_be((name.len() + signature.len() + 8) as u32);
+            buf.extend_ssh_string(name.as_bytes());
+            buf.extend_ssh_string(&signature);
+            Ok(())
+        }
     }
 }
 

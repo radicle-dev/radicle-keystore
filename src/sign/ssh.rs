@@ -16,20 +16,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::lock::Mutex;
-use thrussh_keys::{
-    agent::client::AgentClient,
-    encoding::Encoding as _,
-    key::{parse_public_key, KeyPair, PublicKey},
-    signature::{Signature, SignatureBytes},
-    Error as ClientError,
+use thrussh_agent::{
+    client::{self, AgentClient},
+    Constraint,
 };
 use tokio::net::UnixStream;
 
 pub use super::ed25519;
-pub use thrussh_keys::{
-    agent::Constraint,
-    key::{ed25519::SecretKey, SignatureHash},
-};
 
 pub mod error {
     use super::*;
@@ -39,24 +32,21 @@ pub mod error {
     #[non_exhaustive]
     pub enum Connect {
         #[error(transparent)]
-        Client(#[from] ClientError),
+        Client(#[from] client::Error),
     }
 
     #[derive(Debug, Error)]
     #[non_exhaustive]
     pub enum AddKey {
         #[error(transparent)]
-        Client(#[from] ClientError),
+        Client(#[from] client::Error),
     }
 
     #[derive(Debug, Error)]
     #[non_exhaustive]
     pub enum Sign {
-        #[error("for some reason the agent returned an RSA signature")]
-        Rsa { hash: SignatureHash, bytes: Vec<u8> },
-
         #[error(transparent)]
-        Client(#[from] ClientError),
+        Client(#[from] client::Error),
     }
 }
 
@@ -79,16 +69,9 @@ impl SshAgent {
         let client = AgentClient::connect_env()
             .await
             .map(|client| Mutex::new(Some(client)))?;
-        let ssh = {
-            let mut pk = Vec::new();
-            pk.extend_ssh_string(b"ssh-ed25519");
-            pk.extend_ssh_string(self.0.as_ref());
-            parse_public_key(&pk)?
-        };
 
         Ok(Signer {
             rfc: self.0,
-            ssh,
             client,
         })
     }
@@ -102,18 +85,19 @@ type Client = Mutex<Option<AgentClient<UnixStream>>>;
 
 struct Signer {
     rfc: ed25519::PublicKey,
-    ssh: PublicKey,
     client: Client,
 }
 
 /// Add a secret key to a running ssh-agent.
 ///
 /// Connects to the agent via the `SSH_AUTH_SOCK` unix domain socket.
-pub async fn add_key(secret: SecretKey, constraints: &[Constraint]) -> Result<(), error::AddKey> {
+pub async fn add_key(
+    secret: ed25519_zebra::SigningKey,
+    constraints: &[Constraint],
+) -> Result<(), error::AddKey> {
     let mut client = AgentClient::connect_env().await?;
-    client
-        .add_identity(&KeyPair::Ed25519(secret), constraints)
-        .await?;
+    let secret = ed25519::SigningKey::from(secret);
+    client.add_identity(&secret, constraints).await?;
 
     Ok(())
 }
@@ -133,11 +117,8 @@ impl ed25519::Signer for Signer {
             Some(client) => client,
         };
 
-        let (client, sig) = client.sign_request_signature(&self.ssh, data).await?;
+        let (client, sig) = client.sign_request_signature(&self.rfc, data).await;
         *guard = Some(client);
-        match sig {
-            Signature::Ed25519(SignatureBytes(bytes)) => Ok(ed25519::Signature(bytes)),
-            Signature::RSA { hash, bytes } => Err(error::Sign::Rsa { hash, bytes }),
-        }
+        Ok(sig?)
     }
 }
