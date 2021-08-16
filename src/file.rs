@@ -200,7 +200,7 @@ mod tests {
 
     fn with_fs_store<F, P>(pin: P, f: F)
     where
-        F: FnOnce(FileStorage<Pwhash<P>, PublicKey, SecretKey, ()>) -> (),
+        F: FnOnce(FileStorage<Pwhash<P>, PublicKey, SecretKey, ()>),
         P: Pinentry,
     {
         let tmp = tempdir().expect("Can't get tempdir");

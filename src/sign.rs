@@ -166,7 +166,7 @@ pub mod ed25519 {
 
             async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
                 Ok(Signature(
-                    sodiumoxide::crypto::sign::ed25519::sign_detached(data, &self).0,
+                    sodiumoxide::crypto::sign::ed25519::sign_detached(data, self).to_bytes(),
                 ))
             }
         }

@@ -159,7 +159,7 @@ mod tests {
 
     fn with_mem_store<F, P>(pin: P, f: F)
     where
-        F: FnOnce(MemoryStorage<Pwhash<P>, PublicKey, SecretKey, ()>) -> (),
+        F: FnOnce(MemoryStorage<Pwhash<P>, PublicKey, SecretKey, ()>),
         P: Pinentry,
         P::Error: std::error::Error + 'static,
     {

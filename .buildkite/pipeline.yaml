@@ -7,7 +7,7 @@ steps:
       production: "true"
       platform: "linux"
     env: &build-docker
-      DOCKER_IMAGE: "gcr.io/opensourcecoin/radicle-keystore-build@sha256:4a066ef13dd4133fb50302c33ed89e8be3d6a7276a628eb2c81866a779184c76"
+      DOCKER_IMAGE: "gcr.io/opensourcecoin/radicle-keystore-build@sha256:d9d82db23b399a93501671850621170ccc9455f80f538490ee093285dab6be63"
       DOCKER_FILE: .buildkite/docker/rust/Dockerfile
 
   - label: "Lint and clip"
