@@ -7,10 +7,10 @@ edition = "2018"
 license = "GPL-3.0-or-later"
 
 [features]
-ssh-agent = ["thrussh-agent", "thrussh-encoding", "tokio"]
+ssh-agent = ["smol", "thrussh-agent", "thrussh-encoding"]
 
 [patch.crates-io]
-thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-client" , optional = true }
+thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
 
 [dependencies]
 async-trait = "0.1"
@@ -21,16 +21,16 @@ ed25519-zebra = "2.2"
 futures = "0.3"
 generic-array = { version = "0.14", features = ["serde"] }
 lazy_static = "1"
+rand = "0.7"
 rpassword = "4.0"
+scrypt = { version = "0.4", default-features = false }
 secstr = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
-thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-client" , optional = true }
-thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-client" , optional = true }
-tokio = { version = "1.0", features = ["net"], optional = true }
-rand = "0.7"
-scrypt = { version = "0.4", default-features = false }
+smol = { version = "1.2", optional = true }
 thiserror = "1.0"
+thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true, features = [ "smol-agent" ], default-features = false }
+thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }

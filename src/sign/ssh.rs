@@ -16,11 +16,11 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::lock::Mutex;
+use smol::net::unix::UnixStream;
 use thrussh_agent::{
-    client::{self, AgentClient},
+    client::{self, AgentClient, ClientStream},
     Constraint,
 };
-use tokio::net::UnixStream;
 
 pub use super::ed25519;
 
@@ -66,7 +66,7 @@ impl SshAgent {
     pub async fn connect(
         self,
     ) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect> {
-        let client = AgentClient::connect_env()
+        let client = UnixStream::connect_env()
             .await
             .map(|client| Mutex::new(Some(client)))?;
 
@@ -95,7 +95,7 @@ pub async fn add_key(
     secret: ed25519_zebra::SigningKey,
     constraints: &[Constraint],
 ) -> Result<(), error::AddKey> {
-    let mut client = AgentClient::connect_env().await?;
+    let mut client = UnixStream::connect_env().await?;
     let secret = ed25519::SigningKey::from(secret);
     client.add_identity(&secret, constraints).await?;
 
@@ -113,7 +113,7 @@ impl ed25519::Signer for Signer {
     async fn sign(&self, data: &[u8]) -> Result<ed25519::Signature, Self::Error> {
         let mut guard = self.client.lock().await;
         let client = match guard.take() {
-            None => AgentClient::connect_env().await?,
+            None => UnixStream::connect_env().await?,
             Some(client) => client,
         };
 
