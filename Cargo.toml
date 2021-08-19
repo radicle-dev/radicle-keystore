@@ -17,7 +17,6 @@ async-trait = "0.1"
 byteorder = "1.4"
 chacha20poly1305 = { version = "0.5.1", default-features = false, features = ["alloc", "chacha20"] }
 cryptovec = "0.6.0"
-ed25519-zebra = "2.2"
 futures = "0.3"
 generic-array = { version = "0.14", features = ["serde"] }
 lazy_static = "1"
@@ -30,6 +29,10 @@ serde_cbor = "0.10"
 thiserror = "1.0"
 thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true, default-features = false }
 thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
+
+[dependencies.ed25519-zebra]
+git = "https://github.com/ZcashFoundation/ed25519-zebra"
+rev = "0e7a96a267a756e642e102a28a44dd79b9c7df69"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }
