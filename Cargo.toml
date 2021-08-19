@@ -7,7 +7,7 @@ edition = "2018"
 license = "GPL-3.0-or-later"
 
 [features]
-ssh-agent = ["smol", "thrussh-agent", "thrussh-encoding"]
+ssh-agent = ["thrussh-agent", "thrussh-encoding"]
 
 [patch.crates-io]
 thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
@@ -27,14 +27,15 @@ scrypt = { version = "0.4", default-features = false }
 secstr = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
-smol = { version = "1.2", optional = true }
 thiserror = "1.0"
-thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true, features = [ "smol-agent" ], default-features = false }
+thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true, default-features = false }
 thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }
 ed25519-dalek = "=1.0.0-pre.4" # lolwut?
 rand = { version = "0.7", default-features = false }
+smol = { version = "1.2" }
 sodiumoxide = "0.2"
 tempfile = "3"
+thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , features = [ "smol-agent" ], default-features = false }

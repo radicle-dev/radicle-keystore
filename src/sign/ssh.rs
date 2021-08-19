@@ -16,7 +16,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use futures::lock::Mutex;
-use smol::net::unix::UnixStream;
 use thrussh_agent::{
     client::{self, AgentClient, ClientStream},
     Constraint,
@@ -63,10 +62,22 @@ impl SshAgent {
         Self(key)
     }
 
-    pub async fn connect(
+    /// Connects to the agent via the `SSH_AUTH_SOCK` unix domain socket and
+    /// provides a [`ed25519::Signer`] for signing a payload.
+    ///
+    /// # Note
+    ///
+    /// The stream parameter `S` needs to be chosen when calling this function.
+    /// This is to leave the async runtime agnostic. The different
+    /// implementations for streams can be found at [`ClientStream`]'s
+    /// documentation.
+    pub async fn connect<S>(
         self,
-    ) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect> {
-        let client = UnixStream::connect_env()
+    ) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect>
+    where
+        S: ClientStream + Unpin,
+    {
+        let client = S::connect_env()
             .await
             .map(|client| Mutex::new(Some(client)))?;
 
@@ -81,21 +92,30 @@ impl SshAgent {
 // Error>` instead of `(Self, Result<Signature, Error>)`, which is probably a
 // bug. Because of this (and the move semantics, which are a bit weird anyways),
 // we need to slap our own mutex, and reconnect if we get an error.
-type Client = Mutex<Option<AgentClient<UnixStream>>>;
+type Client<S> = Mutex<Option<AgentClient<S>>>;
 
-struct Signer {
+struct Signer<S> {
     rfc: ed25519::PublicKey,
-    client: Client,
+    client: Client<S>,
 }
 
 /// Add a secret key to a running ssh-agent.
 ///
 /// Connects to the agent via the `SSH_AUTH_SOCK` unix domain socket.
-pub async fn add_key(
+///
+/// # Note
+///
+/// The stream parameter `S` needs to be chosen when calling this function. This
+/// is to leave the async runtime agnostic. The different implementations for
+/// streams can be found at [`ClientStream`]'s documentation.
+pub async fn add_key<S>(
     secret: ed25519_zebra::SigningKey,
     constraints: &[Constraint],
-) -> Result<(), error::AddKey> {
-    let mut client = UnixStream::connect_env().await?;
+) -> Result<(), error::AddKey>
+where
+    S: ClientStream + Unpin,
+{
+    let mut client = S::connect_env().await?;
     let secret = ed25519::SigningKey::from(secret);
     client.add_identity(&secret, constraints).await?;
 
@@ -103,7 +123,10 @@ pub async fn add_key(
 }
 
 #[async_trait]
-impl ed25519::Signer for Signer {
+impl<S> ed25519::Signer for Signer<S>
+where
+    S: ClientStream + Unpin,
+{
     type Error = error::Sign;
 
     fn public_key(&self) -> ed25519::PublicKey {
@@ -113,7 +136,7 @@ impl ed25519::Signer for Signer {
     async fn sign(&self, data: &[u8]) -> Result<ed25519::Signature, Self::Error> {
         let mut guard = self.client.lock().await;
         let client = match guard.take() {
-            None => UnixStream::connect_env().await?,
+            None => ClientStream::connect_env().await?,
             Some(client) => client,
         };
 

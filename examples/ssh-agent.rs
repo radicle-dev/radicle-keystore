@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use smol::io;
+use smol::{io, net::unix::UnixStream};
 
 #[cfg(feature = "ssh-agent")]
 fn main() -> io::Result<()> {
@@ -32,12 +32,12 @@ fn main() -> io::Result<()> {
             let mut pair = [0u8; 64];
             pair[..32].copy_from_slice(sk.as_ref());
             pair[32..].copy_from_slice(pk.as_ref());
-            ssh::add_key(sk, &[]).await.unwrap();
+            ssh::add_key::<UnixStream>(sk, &[]).await.unwrap();
         }
 
         println!("connecting to ssh-agent");
         let agent = SshAgent::new(ssh::ed25519::PublicKey(pk.into()))
-            .connect()
+            .connect::<UnixStream>()
             .await
             .expect("could not connect to ssh-agent");
         println!("asking agent to sign some data");
