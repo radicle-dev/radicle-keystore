@@ -28,12 +28,7 @@ fn main() -> io::Result<()> {
 
         // This could be a `rad-ssh-add` executable which reads the local key from
         // the filestore (prompting for the password).
-        {
-            let mut pair = [0u8; 64];
-            pair[..32].copy_from_slice(sk.as_ref());
-            pair[32..].copy_from_slice(pk.as_ref());
-            ssh::add_key::<UnixStream>(sk, &[]).await.unwrap();
-        }
+        ssh::add_key::<UnixStream>(sk, &[]).await.unwrap();
 
         println!("connecting to ssh-agent");
         let agent = SshAgent::new(ssh::ed25519::PublicKey(pk.into()))
