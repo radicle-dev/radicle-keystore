@@ -20,6 +20,7 @@ use std::{
     convert::Infallible,
     fmt::{self, Debug},
     hash::{Hash, Hasher},
+    sync::Arc,
 };
 
 pub struct SigningKey(ed25519_zebra::SigningKey);
@@ -114,6 +115,22 @@ pub trait Signer {
     /// Sign the supplied data with the secret key corresponding to
     /// [`Signer::public_key`]
     async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
+}
+
+#[async_trait]
+impl<S> Signer for Arc<S>
+where
+    S: Signer + Send + Sync,
+{
+    type Error = S::Error;
+
+    fn public_key(&self) -> PublicKey {
+        self.as_ref().public_key()
+    }
+
+    async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+        self.as_ref().sign(data).await
+    }
 }
 
 #[async_trait]
