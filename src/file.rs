@@ -67,8 +67,8 @@ struct Stored<PK, S, M> {
 
 #[derive(Debug)]
 pub enum Error<Crypto, Conversion> {
-    KeyExists,
-    NoSuchKey,
+    KeyExists(PathBuf),
+    NoSuchKey(PathBuf),
     Crypto(Crypto),
     Conversion(Conversion),
     Serde(serde_cbor::error::Error),
@@ -89,8 +89,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::KeyExists => f.write_str("Key exists, refusing to overwrite"),
-            Self::NoSuchKey => f.write_str("No key found"),
+            Self::KeyExists(path) => {
+                write!(
+                    f,
+                    "Key exists at file path {}, refusing to overwrite",
+                    path.display()
+                )
+            },
+            Self::NoSuchKey(path) => write!(f, "No key found at file path: {}", path.display()),
             Self::Conversion(e) => write!(f, "Error reconstructing sealed key: {}", e),
             Self::Crypto(e) => write!(f, "Error unsealing key: {}", e),
             Self::Serde(e) => write!(f, "{}", e),
@@ -130,7 +136,7 @@ where
 
     fn put_key(&mut self, key: Self::SecretKey) -> Result<(), Self::Error> {
         if self.key_file_path().exists() {
-            return Err(Error::KeyExists);
+            return Err(Error::KeyExists(self.key_file_path.clone()));
         }
 
         let metadata = key.metadata();
@@ -152,7 +158,7 @@ where
 
     fn get_key(&self) -> Result<Keypair<Self::PublicKey, Self::SecretKey>, Self::Error> {
         if !self.key_file_path().exists() {
-            return Err(Error::NoSuchKey);
+            return Err(Error::NoSuchKey(self.key_file_path.clone()));
         }
 
         let stored: Stored<Self::PublicKey, <C as Crypto>::SecretBox, Self::Metadata> =
@@ -178,7 +184,7 @@ where
 
     fn show_key(&self) -> Result<(Self::PublicKey, Self::Metadata), Self::Error> {
         if !self.key_file_path().exists() {
-            return Err(Error::NoSuchKey);
+            return Err(Error::NoSuchKey(self.key_file_path.clone()));
         }
 
         let stored: Stored<Self::PublicKey, <C as Crypto>::SecretBox, Self::Metadata> =
@@ -218,14 +224,16 @@ mod tests {
     #[test]
     fn test_put_twice() {
         with_fs_store(default_passphrase(), |store| {
-            put_twice(store, Error::KeyExists)
+            let path = store.key_file_path().to_path_buf();
+            put_twice(store, Error::KeyExists(path))
         })
     }
 
     #[test]
     fn test_get_empty() {
         with_fs_store(default_passphrase(), |store| {
-            get_empty(store, Error::NoSuchKey)
+            let path = store.key_file_path().to_path_buf();
+            get_empty(store, Error::NoSuchKey(path))
         })
     }
 
