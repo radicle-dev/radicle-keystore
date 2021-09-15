@@ -30,8 +30,9 @@ fn main() -> io::Result<()> {
         // the filestore (prompting for the password).
         ssh::add_key::<UnixStream>(sk, &[]).await.unwrap();
 
+        let public = ssh::ed25519::PublicKey(pk.into());
         println!("connecting to ssh-agent");
-        let agent = SshAgent::new(ssh::ed25519::PublicKey(pk.into()))
+        let agent = SshAgent::new(public)
             .connect::<UnixStream>()
             .await
             .expect("could not connect to ssh-agent");
@@ -44,6 +45,23 @@ fn main() -> io::Result<()> {
         pk.verify(&ed25519_zebra::Signature::from(sig.0), b"cooper")
             .expect("ssh-agent didn't return a valid signature");
         println!("it worksed");
+
+        let keys = ssh::list_keys::<UnixStream>()
+            .await
+            .expect("could not list keys");
+        if keys.contains(&public) {
+            println!("added key succesfully")
+        }
+        ssh::remove_key::<UnixStream>(&public)
+            .await
+            .expect("could not remove key from ssh-agent");
+        let keys = ssh::list_keys::<UnixStream>()
+            .await
+            .expect("could not list keys");
+        if !keys.contains(&public) {
+            println!("removed key successfully")
+        }
+
         Ok(())
     })
 }

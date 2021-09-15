@@ -43,6 +43,20 @@ pub mod error {
 
     #[derive(Debug, Error)]
     #[non_exhaustive]
+    pub enum RemoveKey {
+        #[error(transparent)]
+        Client(#[from] client::Error),
+    }
+
+    #[derive(Debug, Error)]
+    #[non_exhaustive]
+    pub enum ListKeys {
+        #[error(transparent)]
+        Client(#[from] client::Error),
+    }
+
+    #[derive(Debug, Error)]
+    #[non_exhaustive]
     pub enum Sign {
         #[error(transparent)]
         Client(#[from] client::Error),
@@ -120,6 +134,24 @@ where
     client.add_identity(&secret, constraints).await?;
 
     Ok(())
+}
+
+pub async fn remove_key<S>(key: &ed25519::PublicKey) -> Result<(), error::RemoveKey>
+where
+    S: ClientStream + Unpin,
+{
+    let mut client = S::connect_env().await?;
+    let keys = client.remove_identity(key).await?;
+    Ok(keys)
+}
+
+pub async fn list_keys<S>() -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
+where
+    S: ClientStream + Unpin,
+{
+    let mut client = S::connect_env().await?;
+    let keys = client.request_identities().await?;
+    Ok(keys)
 }
 
 #[async_trait]
