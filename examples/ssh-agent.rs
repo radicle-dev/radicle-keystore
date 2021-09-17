@@ -25,19 +25,20 @@ fn main() -> io::Result<()> {
     smol::block_on(async {
         let sk = ed25519_zebra::SigningKey::new(OsRng {});
         let pk = ed25519_zebra::VerificationKey::from(&sk);
+        let public = ssh::ed25519::PublicKey(pk.into());
+        let agent = SshAgent::new(public);
 
         // This could be a `rad-ssh-add` executable which reads the local key from
         // the filestore (prompting for the password).
-        ssh::add_key::<UnixStream>(sk, &[]).await.unwrap();
+        ssh::add_key::<UnixStream>(&agent, sk, &[]).await.unwrap();
 
-        let public = ssh::ed25519::PublicKey(pk.into());
         println!("connecting to ssh-agent");
-        let agent = SshAgent::new(public)
+        let signer = agent
             .connect::<UnixStream>()
             .await
             .expect("could not connect to ssh-agent");
         println!("asking agent to sign some data");
-        let sig = agent
+        let sig = signer
             .sign(b"cooper")
             .await
             .expect("signing via ssh-agent failed");
@@ -46,16 +47,16 @@ fn main() -> io::Result<()> {
             .expect("ssh-agent didn't return a valid signature");
         println!("it worksed");
 
-        let keys = ssh::list_keys::<UnixStream>()
+        let keys = ssh::list_keys::<UnixStream>(&agent)
             .await
             .expect("could not list keys");
         if keys.contains(&public) {
             println!("added key succesfully")
         }
-        ssh::remove_key::<UnixStream>(&public)
+        ssh::remove_key::<UnixStream>(&agent, &public)
             .await
             .expect("could not remove key from ssh-agent");
-        let keys = ssh::list_keys::<UnixStream>()
+        let keys = ssh::list_keys::<UnixStream>(&agent)
             .await
             .expect("could not list keys");
         if !keys.contains(&public) {

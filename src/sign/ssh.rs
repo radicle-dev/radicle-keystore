@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+use std::path::PathBuf;
+
 use futures::lock::Mutex;
 use thrussh_agent::{
     client::{self, AgentClient, ClientStream},
@@ -69,15 +71,28 @@ pub mod error {
 /// Due to implementation limitations, the only way to connect is currently via
 /// the unix domain socket whose path is read from the `SSH_AUTH_SOCK`
 /// environment variable.
-pub struct SshAgent(ed25519::PublicKey);
+pub struct SshAgent {
+    key: ed25519::PublicKey,
+    path: Option<PathBuf>,
+}
 
 impl SshAgent {
     pub fn new(key: ed25519::PublicKey) -> Self {
-        Self(key)
+        Self { key, path: None }
     }
 
-    /// Connects to the agent via the `SSH_AUTH_SOCK` unix domain socket and
-    /// provides a [`ed25519::Signer`] for signing a payload.
+    pub fn with_path(self, path: PathBuf) -> Self {
+        Self {
+            path: Some(path),
+            ..self
+        }
+    }
+
+    /// Connects to the agent via a unix domain socket and provides a
+    /// [`ed25519::Signer`] for signing a payload.
+    ///
+    /// If the path was set using [`SshAgent::with_path`], then that is used for
+    /// the domain socket. Otherwise, the value of `SSH_AUTH_SOCKET` is used.
     ///
     /// # Note
     ///
@@ -86,19 +101,30 @@ impl SshAgent {
     /// implementations for streams can be found at [`ClientStream`]'s
     /// documentation.
     pub async fn connect<S>(
-        self,
+        &self,
     ) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect>
     where
         S: ClientStream + Unpin,
     {
-        let client = S::connect_env()
+        let client = self
+            .client::<S>()
             .await
             .map(|client| Mutex::new(Some(client)))?;
 
         Ok(Signer {
-            rfc: self.0,
+            rfc: self.key,
             client,
         })
+    }
+
+    async fn client<S>(&self) -> Result<AgentClient<S>, client::Error>
+    where
+        S: ClientStream + Unpin,
+    {
+        match &self.path {
+            None => Ok(S::connect_env().await?),
+            Some(path) => Ok(S::connect_uds(path).await?),
+        }
     }
 }
 
@@ -123,33 +149,37 @@ struct Signer<S> {
 /// is to leave the async runtime agnostic. The different implementations for
 /// streams can be found at [`ClientStream`]'s documentation.
 pub async fn add_key<S>(
+    agent: &SshAgent,
     secret: ed25519_zebra::SigningKey,
     constraints: &[Constraint],
 ) -> Result<(), error::AddKey>
 where
     S: ClientStream + Unpin,
 {
-    let mut client = S::connect_env().await?;
+    let mut client = agent.client::<S>().await?;
     let secret = ed25519::SigningKey::from(secret);
     client.add_identity(&secret, constraints).await?;
 
     Ok(())
 }
 
-pub async fn remove_key<S>(key: &ed25519::PublicKey) -> Result<(), error::RemoveKey>
+pub async fn remove_key<S>(
+    agent: &SshAgent,
+    key: &ed25519::PublicKey,
+) -> Result<(), error::RemoveKey>
 where
     S: ClientStream + Unpin,
 {
-    let mut client = S::connect_env().await?;
+    let mut client = agent.client::<S>().await?;
     let keys = client.remove_identity(key).await?;
     Ok(keys)
 }
 
-pub async fn list_keys<S>() -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
+pub async fn list_keys<S>(agent: &SshAgent) -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
 where
     S: ClientStream + Unpin,
 {
-    let mut client = S::connect_env().await?;
+    let mut client = agent.client::<S>().await?;
     let keys = client.request_identities().await?;
     Ok(keys)
 }
