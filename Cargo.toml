@@ -17,11 +17,11 @@ async-trait = "0.1"
 byteorder = "1.4"
 chacha20poly1305 = { version = "0.5.1", default-features = false, features = ["alloc", "chacha20"] }
 cryptovec = "0.6.0"
-ed25519-zebra = "2.2"
+ed25519-zebra = "3.0"
 futures = "0.3"
 generic-array = { version = "0.14", features = ["serde"] }
 lazy_static = "1"
-rand = "0.7"
+rand = "0.8.4"
 rpassword = "4.0"
 scrypt = { version = "0.4", default-features = false }
 secstr = "0.3"
@@ -34,7 +34,7 @@ thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "g
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }
 ed25519-dalek = "=1.0.0-pre.4" # lolwut?
-rand = { version = "0.7", default-features = false }
+rand = { version = "0.8.4", default-features = false }
 smol = { version = "1.2" }
 sodiumoxide = "0.2"
 tempfile = "3"
