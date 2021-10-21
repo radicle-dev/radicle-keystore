@@ -15,15 +15,12 @@ thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "g
 [dependencies]
 async-trait = "0.1"
 byteorder = "1.4"
-chacha20poly1305 = { version = "0.5.1", default-features = false, features = ["alloc", "chacha20"] }
 cryptovec = "0.6.0"
-ed25519-zebra = "3.0"
 futures = "0.3"
 generic-array = { version = "0.14", features = ["serde"] }
 lazy_static = "1"
 rand = "0.8.4"
 rpassword = "4.0"
-scrypt = { version = "0.4", default-features = false }
 secstr = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
@@ -31,9 +28,28 @@ thiserror = "1.0"
 thrussh-agent = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true, default-features = false }
 thrussh-encoding = { git = "https://github.com/FintanH/thrussh.git", branch = "generic-agent" , optional = true }
 
+# CRYPTO
+#
+# NOTE: by policy, we pin non-dev cryptographic libraries to their exact
+# versions, requiring explicit maintainer action to apply upgrades. The
+# `deny.toml` is set up such that unintended upgrades are (hopefully) rejected.
+#
+[dependencies.chacha20poly1305]
+version = "=0.9.0"
+default-features = false
+features = ["alloc"]
+
+[dependencies.ed25519-zebra]
+version = "=3.0.0"
+
+[dependencies.scrypt]
+version = "=0.8.0"
+default-features = false
+# END CRYPTO
+
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt"] }
-ed25519-dalek = "=1.0.0-pre.4" # lolwut?
+ed25519-dalek = "=1.0.1"
 rand = { version = "0.8.4", default-features = false }
 smol = { version = "1.2" }
 sodiumoxide = "0.2"

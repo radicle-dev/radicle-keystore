@@ -27,11 +27,11 @@ use thiserror::Error;
 use crate::pinentry::Pinentry;
 
 /// Parameters for the key derivation function.
-pub type KdfParams = scrypt::ScryptParams;
+pub type KdfParams = scrypt::Params;
 
 lazy_static! {
     /// [`KdfParams`] suitable for production use.
-    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::ScryptParams::new(15, 8, 1).unwrap();
+    pub static ref KDF_PARAMS_PROD: KdfParams = scrypt::Params::new(15, 8, 1).unwrap();
 
     /// [`KdfParams`] suitable for use in tests.
     ///
@@ -41,11 +41,11 @@ lazy_static! {
     /// [`SecretBox`] to be carried out at significantly lower cost. Care must
     /// be taken by users of this library to prevent accidental use of test
     /// parameters in a production setting.
-    pub static ref KDF_PARAMS_TEST: KdfParams = scrypt::ScryptParams::new(4, 8, 1).unwrap();
+    pub static ref KDF_PARAMS_TEST: KdfParams = scrypt::Params::new(4, 8, 1).unwrap();
 }
 
 /// Nonce used for secret box.
-type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::Aead>::NonceSize>;
+type Nonce = GenericArray<u8, <chacha20poly1305::ChaCha20Poly1305 as aead::AeadCore>::NonceSize>;
 
 /// Size of the salt, in bytes.
 const SALT_SIZE: usize = 24;
@@ -165,7 +165,7 @@ where
     }
 }
 
-fn derive_key(salt: &Salt, passphrase: &SecUtf8, params: &scrypt::ScryptParams) -> [u8; 32] {
+fn derive_key(salt: &Salt, passphrase: &SecUtf8, params: &KdfParams) -> [u8; 32] {
     let mut key = [0u8; 32];
     scrypt::scrypt(passphrase.unsecure().as_bytes(), salt, params, &mut key)
         .expect("Output length must not be zero");
