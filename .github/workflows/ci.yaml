@@ -43,6 +43,7 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
+          use-tool-cache: true
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -69,6 +70,7 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
+          use-tool-cache: true
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
