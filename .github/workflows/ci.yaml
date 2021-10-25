@@ -9,6 +9,13 @@ jobs:
         with:
           profile: minimal
           components: rustfmt, clippy
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/clippy
         shell: bash
@@ -29,6 +36,13 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -48,6 +62,13 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -62,26 +83,24 @@ jobs:
           command: deny
           args: check sources
 
-  linux:
-    runs-on: ubuntu-latest
+  build-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v1
-      - run: ./ci/build-test
-        shell: bash
-
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/cache@v2
         with:
-          profile: minimal
-          components: rustfmt, clippy
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/build-test
         shell: bash
