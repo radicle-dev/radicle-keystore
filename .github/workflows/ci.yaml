@@ -5,10 +5,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          components: rustfmt, clippy
       - uses: actions/cache@v2
         with:
           path: |
@@ -16,6 +12,10 @@ jobs:
             ~/.rustup/toolchains
             ~/.rustup/update-hashes
           key: toolchain-${{ hashFiles('rust-toolchain') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/clippy
         shell: bash
@@ -28,6 +28,13 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@master
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -36,13 +43,6 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.rustup/settings.toml
-            ~/.rustup/toolchains
-            ~/.rustup/update-hashes
-          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -54,6 +54,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.rustup/settings.toml
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -62,13 +69,6 @@ jobs:
         with:
           crate: cargo-deny
           version: latest
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.rustup/settings.toml
-            ~/.rustup/toolchains
-            ~/.rustup/update-hashes
-          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -90,10 +90,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          components: rustfmt, clippy
       - uses: actions/cache@v2
         with:
           path: |
@@ -101,6 +97,10 @@ jobs:
             ~/.rustup/toolchains
             ~/.rustup/update-hashes
           key: toolchain-${{ hashFiles('rust-toolchain') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/build-test
         shell: bash
