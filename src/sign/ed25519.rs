@@ -107,7 +107,7 @@ impl Debug for Signature {
 
 #[async_trait]
 pub trait Signer {
-    type Error;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Obtain the [`PublicKey`] used for signing
     fn public_key(&self) -> PublicKey;
