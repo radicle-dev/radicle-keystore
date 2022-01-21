@@ -263,7 +263,9 @@ pub mod thrussh {
             buf.extend_ssh_string(pk.as_ref());
             buf.push_u32_be(64);
             buf.extend(&pair);
-            buf.extend_ssh_string(b"");
+            // The GnuPG SSH agent fails to add keys with empty comments.
+            // See: https://dev.gnupg.org/T5794
+            buf.extend_ssh_string(b"radicle ed25519-zebra");
             Ok(())
         }
 
