@@ -153,10 +153,10 @@ pub mod thrussh {
     use std::convert::{TryFrom as _, TryInto as _};
 
     use byteorder::{BigEndian, ByteOrder as _};
-    use cryptovec::CryptoVec;
+    use lnk_cryptovec::CryptoVec;
+    use lnk_thrussh_agent as agent;
+    use lnk_thrussh_encoding::{Encoding as _, Position, Reader as _};
     use thiserror::Error;
-    use thrussh_agent as agent;
-    use thrussh_encoding::{Encoding as _, Position, Reader as _};
 
     use super::*;
 
@@ -165,7 +165,7 @@ pub mod thrussh {
         #[error("invalid signature was computed")]
         Invalid,
         #[error(transparent)]
-        Encoding(#[from] thrussh_encoding::Error),
+        Encoding(#[from] lnk_thrussh_encoding::Error),
     }
 
     impl agent::key::Signature for Signature {
@@ -190,7 +190,7 @@ pub mod thrussh {
         #[error("the public key parsed was not 32 bits in length")]
         Invalid,
         #[error(transparent)]
-        Encoding(#[from] thrussh_encoding::Error),
+        Encoding(#[from] lnk_thrussh_encoding::Error),
     }
 
     impl agent::key::Public for PublicKey {
@@ -227,7 +227,7 @@ pub mod thrussh {
     #[derive(Debug, Error)]
     pub enum SigningKeyError {
         #[error(transparent)]
-        Encoding(#[from] thrussh_encoding::Error),
+        Encoding(#[from] lnk_thrussh_encoding::Error),
         #[error(transparent)]
         Ed25519(#[from] ed25519_zebra::Error),
     }

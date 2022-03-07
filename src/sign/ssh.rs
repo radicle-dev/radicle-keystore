@@ -18,7 +18,7 @@
 use std::path::PathBuf;
 
 use futures::lock::Mutex;
-use thrussh_agent::{
+use lnk_thrussh_agent::{
     client::{self, AgentClient, ClientStream},
     Constraint,
 };
