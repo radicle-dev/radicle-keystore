@@ -1,21 +1,28 @@
 name: ci
 on: [push, pull_request]
 jobs:
-  lint:
+  fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.rustup/settings.toml
-            ~/.rustup/toolchains
-            ~/.rustup/update-hashes
-          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          components: rustfmt, clippy
+          toolchain: nightly
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v1
+      - run: ./ci/fmt
+        shell: bash
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/clippy
         shell: bash
@@ -34,24 +41,32 @@ jobs:
         with:
           command: check ${{ matrix.checks }}
 
-  build-test:
+  build-test-linux:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        toolchain:
+          - stable
+          - nightly
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@master
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.rustup/settings.toml
-            ~/.rustup/toolchains
-            ~/.rustup/update-hashes
-          key: toolchain-${{ hashFiles('rust-toolchain') }}
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          components: rustfmt, clippy
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v1
+      - run: ./ci/build-test
+        shell: bash
+
+  build-test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
       - uses: Swatinem/rust-cache@v1
       - run: ./ci/build-test
         shell: bash
