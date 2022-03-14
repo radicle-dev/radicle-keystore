@@ -45,7 +45,7 @@ default-features = false
 # END CRYPTO
 
 [dev-dependencies]
-tokio = { version = "1.0", features = ["macros", "rt"] }
+tokio = { version = ">= 1.8.4", features = ["macros", "rt"] }
 ed25519-dalek = "=1.0.1"
 lnk-thrussh-agent = { version = "0.1.0", features = [ "smol-agent" ], default-features = false }
 rand = { version = "0.8.4", default-features = false }
