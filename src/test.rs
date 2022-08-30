@@ -51,7 +51,7 @@ pub fn default_passphrase() -> SecUtf8 {
     SecUtf8::from("asdf")
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicKey(sign::PublicKey);
 
 impl From<SecretKey> for PublicKey {
@@ -60,7 +60,7 @@ impl From<SecretKey> for PublicKey {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SecretKey(sign::SecretKey);
 
 #[derive(Debug)]
