@@ -171,8 +171,8 @@ where
     S: ClientStream + Unpin,
 {
     let mut client = agent.client::<S>().await?;
-    let keys = client.remove_identity(key).await?;
-    Ok(keys)
+    client.remove_identity(key).await?;
+    Ok(())
 }
 
 pub async fn list_keys<S>(agent: &SshAgent) -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
