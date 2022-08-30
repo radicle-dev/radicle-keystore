@@ -42,13 +42,11 @@ unlicensed = "deny"
 # [possible values: any SPDX 3.7 short identifier (+ optional exception)].
 allow = [
     "Apache-2.0",
-    "BlueOak-1.0.0",
     "BSD-2-Clause",
-    "CC0-1.0",
-    "GPL-2.0",
     "GPL-3.0",
     "MIT",
     "Unlicense",
+    "Unicode-DFS-2016",
 ]
 # List of explictly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -125,13 +123,7 @@ default = "deny"
 confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
-exceptions = [
-    # Technically, the `ring` crate is "ISC AND MIT AND OpenSSL", but the rust
-    # code is ISC (mostly). The OpenSSL license is not compatible with GPLv3.
-    # For the sake of sanity, we will need to either get rid of TLS, or
-    # re-license.
-    { allow = ["ISC", "MIT", "OpenSSL"], name = "ring" }
-]
+exceptions = []
 
 # Some crates don't have (easily) machine readable licensing information,
 # adding a clarification entry for it allows you to manually specify the
