@@ -20,7 +20,7 @@ lnk-thrussh-agent = { version = "0.1.0", optional = true, default-features = fal
 lnk-thrussh-encoding = { version = "0.1.0", optional = true }
 rand = "0.8.4"
 rpassword = "4.0"
-secstr = "0.3"
+secstr = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_cbor = "0.10"
 thiserror = "1.0"
