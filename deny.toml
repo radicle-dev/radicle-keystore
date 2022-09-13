@@ -165,10 +165,6 @@ deny = [
     # Each entry the name of a crate and a version range. If version is
     # not specified, all versions will be matched.
     #{ name = "ansi_term", version = "=0.11.0" },
-    { name = "chacha20poly1305", version = "> 0.9.0" },
-    { name = "ed25519-zebra", version = "> 3.0.0" },
-    { name = "curve25519-dalek", version = "> 3.2.0" },
-    { name = "scrypt", version = "> 0.8.0" },
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [

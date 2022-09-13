@@ -27,22 +27,20 @@ thiserror = "1.0"
 
 # CRYPTO
 #
-# NOTE: by policy, we pin non-dev cryptographic libraries to their exact
-# versions, requiring explicit maintainer action to apply upgrades. The
-# `deny.toml` is set up such that unintended upgrades are (hopefully) rejected.
+# The binary consumer dictates these versions via .lock
+# The .lock is used to screen the crypto dependency minor/patch bumps
 #
 [dependencies.chacha20poly1305]
-version = "=0.9.0"
+version = "^0.10.1"
 default-features = false
 features = ["alloc"]
 
 [dependencies.ed25519-zebra]
-version = "=3.0.0"
+version = "^3.0.0"
 
 [dependencies.scrypt]
-version = "=0.8.0"
+version = "^0.10.0"
 default-features = false
-# END CRYPTO
 
 [dev-dependencies]
 tokio = { version = ">= 1.8.4", features = ["macros", "rt"] }

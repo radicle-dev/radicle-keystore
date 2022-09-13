@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use chacha20poly1305::{
-    aead,
-    aead::{Aead, NewAead},
-};
+use chacha20poly1305::{aead, aead::Aead, KeyInit};
 use generic_array::GenericArray;
 use secstr::{SecStr, SecUtf8};
 use serde::{Deserialize, Serialize};
