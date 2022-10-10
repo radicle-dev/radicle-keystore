@@ -7,17 +7,15 @@ edition = "2018"
 license = "GPL-3.0-or-later"
 
 [features]
-ssh-agent = ["lnk-thrussh-agent", "lnk-thrussh-encoding"]
+ssh-agent = ["agent", "encoding"]
 
 [dependencies]
-async-trait = "0.1"
 byteorder = "1.4"
-futures = "0.3"
 generic-array = { version = "0.14", features = ["serde"] }
 lazy_static = "1"
-lnk-cryptovec = "0.6.0"
-lnk-thrussh-agent = { version = "0.1.0", optional = true, default-features = false }
-lnk-thrussh-encoding = { version = "0.1.0", optional = true }
+cryptovec = { version = "0.6.0", git = "https://github.com/radicle-dev/radicle-ssh" }
+agent = { version = "0.1.0", git = "https://github.com/radicle-dev/radicle-ssh", optional = true, default-features = false }
+encoding = { version = "0.1.0", git = "https://github.com/radicle-dev/radicle-ssh", optional = true }
 rand = "0.8.4"
 rpassword = "4.0"
 secstr = "0.5"
@@ -43,11 +41,7 @@ version = "^0.10.0"
 default-features = false
 
 [dev-dependencies]
-tokio = { version = ">= 1.8.4", features = ["macros", "rt"] }
 ed25519-dalek = "=1.0.1"
-lnk-thrussh-agent = { version = "0.1.0", features = [ "smol-agent" ], default-features = false }
 rand = { version = "0.8.4", default-features = false }
-smol = { version = "1.2" }
 sodiumoxide = "0.2"
 tempfile = "3"
-
