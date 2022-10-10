@@ -105,7 +105,6 @@ impl Debug for Signature {
     }
 }
 
-#[async_trait]
 pub trait Signer {
     type Error: std::error::Error + Send + Sync + 'static;
 
@@ -114,10 +113,9 @@ pub trait Signer {
 
     /// Sign the supplied data with the secret key corresponding to
     /// [`Signer::public_key`]
-    async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
+    fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error>;
 }
 
-#[async_trait]
 impl<S> Signer for Arc<S>
 where
     S: Signer + Send + Sync,
@@ -128,12 +126,11 @@ where
         self.as_ref().public_key()
     }
 
-    async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
-        self.as_ref().sign(data).await
+    fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+        self.as_ref().sign(data)
     }
 }
 
-#[async_trait]
 impl Signer for ed25519_zebra::SigningKey {
     type Error = Infallible;
 
@@ -142,7 +139,7 @@ impl Signer for ed25519_zebra::SigningKey {
         PublicKey(vk.into())
     }
 
-    async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+    fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
         let signature = self.sign(data);
         Ok(Signature(signature.into()))
     }
@@ -152,10 +149,10 @@ impl Signer for ed25519_zebra::SigningKey {
 pub mod thrussh {
     use std::convert::{TryFrom as _, TryInto as _};
 
+    use agent;
     use byteorder::{BigEndian, ByteOrder as _};
-    use lnk_cryptovec::CryptoVec;
-    use lnk_thrussh_agent as agent;
-    use lnk_thrussh_encoding::{Encoding as _, Position, Reader as _};
+    use cryptovec::CryptoVec;
+    use encoding::{Encoding as _, Position, Reader as _};
     use thiserror::Error;
 
     use super::*;
@@ -165,7 +162,7 @@ pub mod thrussh {
         #[error("invalid signature was computed")]
         Invalid,
         #[error(transparent)]
-        Encoding(#[from] lnk_thrussh_encoding::Error),
+        Encoding(#[from] encoding::Error),
     }
 
     impl agent::key::Signature for Signature {
@@ -190,7 +187,7 @@ pub mod thrussh {
         #[error("the public key parsed was not 32 bits in length")]
         Invalid,
         #[error(transparent)]
-        Encoding(#[from] lnk_thrussh_encoding::Error),
+        Encoding(#[from] encoding::Error),
     }
 
     impl agent::key::Public for PublicKey {
@@ -227,7 +224,7 @@ pub mod thrussh {
     #[derive(Debug, Error)]
     pub enum SigningKeyError {
         #[error(transparent)]
-        Encoding(#[from] lnk_thrussh_encoding::Error),
+        Encoding(#[from] encoding::Error),
         #[error(transparent)]
         Ed25519(#[from] ed25519_zebra::Error),
     }
@@ -299,7 +296,7 @@ mod tests {
     /// implementations must be byte-for-byte equal.
     ///
     /// All combinatorial pairs of `Signer` implementations must pass this.
-    async fn compat<S1, S2>(signer1: S1, signer2: S2)
+    fn compat<S1, S2>(signer1: S1, signer2: S2)
     where
         S1: Signer,
         S2: Signer,
@@ -309,12 +306,11 @@ mod tests {
     {
         assert_eq!(signer1.public_key(), signer2.public_key());
         assert_eq!(
-            signer1.sign(MESSAGE).await.unwrap(),
-            signer2.sign(MESSAGE).await.unwrap()
+            signer1.sign(MESSAGE).unwrap(),
+            signer2.sign(MESSAGE).unwrap()
         );
     }
 
-    #[async_trait]
     impl Signer for sodiumoxide::crypto::sign::ed25519::SecretKey {
         type Error = Infallible;
 
@@ -322,14 +318,13 @@ mod tests {
             PublicKey(self.public_key().0)
         }
 
-        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
             Ok(Signature(
                 sodiumoxide::crypto::sign::ed25519::sign_detached(data, self).to_bytes(),
             ))
         }
     }
 
-    #[async_trait]
     impl Signer for ed25519_dalek::Keypair {
         type Error = Infallible;
 
@@ -337,13 +332,13 @@ mod tests {
             PublicKey(self.public.to_bytes())
         }
 
-        async fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
+        fn sign(&self, data: &[u8]) -> Result<Signature, Self::Error> {
             Ok(Signature(DalekSigner::sign(self, data).to_bytes()))
         }
     }
 
-    #[tokio::test]
-    async fn compat_sodium_dalek() {
+    #[test]
+    fn compat_sodium_dalek() {
         sodiumoxide::init().unwrap();
 
         let (_, sodium) = sodium::gen_keypair();
@@ -353,11 +348,11 @@ mod tests {
             ed25519_dalek::Keypair { secret, public }
         };
 
-        compat(sodium, dalek).await
+        compat(sodium, dalek)
     }
 
-    #[tokio::test]
-    async fn compat_zebra_dalek() {
+    #[test]
+    fn compat_zebra_dalek() {
         use rand::rngs::OsRng;
 
         let csprng = OsRng {};
@@ -369,6 +364,6 @@ mod tests {
             ed25519_dalek::Keypair { secret, public }
         };
 
-        compat(zebra, dalek).await
+        compat(zebra, dalek)
     }
 }

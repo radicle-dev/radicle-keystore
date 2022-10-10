@@ -16,12 +16,11 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 
-use futures::lock::Mutex;
-use lnk_thrussh_agent::{
-    client::{self, AgentClient, ClientStream},
-    Constraint,
-};
+use agent::client::Error::PoisonError;
+use agent::client::{self, AgentClient, ClientStream};
+use agent::Constraint;
 
 pub use super::ed25519;
 
@@ -100,16 +99,11 @@ impl SshAgent {
     /// This is to leave the async runtime agnostic. The different
     /// implementations for streams can be found at [`ClientStream`]'s
     /// documentation.
-    pub async fn connect<S>(
-        &self,
-    ) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect>
+    pub fn connect<S>(&self) -> Result<impl ed25519::Signer<Error = error::Sign>, error::Connect>
     where
         S: ClientStream + Unpin,
     {
-        let client = self
-            .client::<S>()
-            .await
-            .map(|client| Mutex::new(Some(client)))?;
+        let client = self.client::<S>().map(|client| Mutex::new(Some(client)))?;
 
         Ok(Signer {
             rfc: self.key,
@@ -117,13 +111,13 @@ impl SshAgent {
         })
     }
 
-    async fn client<S>(&self) -> Result<AgentClient<S>, client::Error>
+    fn client<S>(&self) -> Result<AgentClient<S>, client::Error>
     where
         S: ClientStream + Unpin,
     {
         match &self.path {
-            None => Ok(S::connect_env().await?),
-            Some(path) => Ok(S::connect_uds(path).await?),
+            None => Ok(S::connect_env()?),
+            Some(path) => Ok(S::connect_uds(path)?),
         }
     }
 }
@@ -148,7 +142,7 @@ struct Signer<S> {
 /// The stream parameter `S` needs to be chosen when calling this function. This
 /// is to leave the async runtime agnostic. The different implementations for
 /// streams can be found at [`ClientStream`]'s documentation.
-pub async fn add_key<S>(
+pub fn add_key<S>(
     agent: &SshAgent,
     secret: ed25519_zebra::SigningKey,
     constraints: &[Constraint],
@@ -156,35 +150,31 @@ pub async fn add_key<S>(
 where
     S: ClientStream + Unpin,
 {
-    let mut client = agent.client::<S>().await?;
+    let mut client = agent.client::<S>()?;
     let secret = ed25519::SigningKey::from(secret);
-    client.add_identity(&secret, constraints).await?;
+    client.add_identity(&secret, constraints)?;
 
     Ok(())
 }
 
-pub async fn remove_key<S>(
-    agent: &SshAgent,
-    key: &ed25519::PublicKey,
-) -> Result<(), error::RemoveKey>
+pub fn remove_key<S>(agent: &SshAgent, key: &ed25519::PublicKey) -> Result<(), error::RemoveKey>
 where
     S: ClientStream + Unpin,
 {
-    let mut client = agent.client::<S>().await?;
-    client.remove_identity(key).await?;
+    let mut client = agent.client::<S>()?;
+    client.remove_identity(key)?;
     Ok(())
 }
 
-pub async fn list_keys<S>(agent: &SshAgent) -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
+pub fn list_keys<S>(agent: &SshAgent) -> Result<Vec<ed25519::PublicKey>, error::ListKeys>
 where
     S: ClientStream + Unpin,
 {
-    let mut client = agent.client::<S>().await?;
-    let keys = client.request_identities().await?;
+    let mut client = agent.client::<S>()?;
+    let keys = client.request_identities()?;
     Ok(keys)
 }
 
-#[async_trait]
 impl<S> ed25519::Signer for Signer<S>
 where
     S: ClientStream + Unpin,
@@ -195,14 +185,14 @@ where
         self.rfc
     }
 
-    async fn sign(&self, data: &[u8]) -> Result<ed25519::Signature, Self::Error> {
-        let mut guard = self.client.lock().await;
+    fn sign(&self, data: &[u8]) -> Result<ed25519::Signature, Self::Error> {
+        let mut guard = self.client.lock().map_err(|_| PoisonError)?;
         let client = match guard.take() {
-            None => ClientStream::connect_env().await?,
+            None => ClientStream::connect_env()?,
             Some(client) => client,
         };
 
-        let (client, sig) = client.sign_request_signature(&self.rfc, data).await;
+        let (client, sig) = client.sign_request_signature(&self.rfc, data);
         *guard = Some(client);
         Ok(sig?)
     }
